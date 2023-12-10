@@ -1,13 +1,12 @@
-library(ggplot2)
-library(maps)
-library(mapproj)
-library(ggmap)
-library(zipcode)
-library(stringr)
-library(odbc)
-data(zipcode)
+# to execute this script:
+# First run the Transform_Load script
+# load the SQL database
+# ensure the libraries and datasets are in memory
+# this uses the same libraries and datasets as the Transform_Load script
 
-# replace variables with .env
+# replace variables with your environmental variables
+# link to a file and use the values here
+Sys.setenv(driver = "driver", server = "server", database = "database")
 
 myconn <- DBI::dbConnect(odbc::odbc(),
                          Driver             = driver,

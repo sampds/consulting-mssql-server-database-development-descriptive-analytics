@@ -1,25 +1,59 @@
+#packrat::init()
+
+# if packrat::init() fails then run the pkg install function and then run packrat::init()
+
+# List the packages to install
+pkg <- c("packrat", "ggplot2", "maps", "mapproj", "ggmap", "stringr", "odbc", "zipcodeR")
+
+# Use this function to install packages
+install_if_missing <- function(pkg) {
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)) {
+    install.packages(new.pkg, dependencies = TRUE)
+  }
+}
+
+# Now apply the function on the packages
+install_if_missing(pkg)
+
 library(ggplot2)
 library(maps)
 library(mapproj)
 library(ggmap)
-library(zipcode)
 library(stringr)
-data(zipcode)
+library(zipcodeR)
 library(odbc)
 
+# run if having issues
+# unlink("./packrat", recursive = TRUE)
+# packrat::clean()
+# packrat::restore()
+
+packrat::snapshot()
+
+# run this if getting wrong snapshot
+# packrat::snapshot(ignore.stale=TRUE)
 
 # create "reference" zip code data frame from built-in zip code data
-zipcode.df <- zipcode
+# Get unique zip codes
+
+# Get the zip code data
+data(zip_code_db)
+
+zipcode.df <- zip_code_db[,c(1,3,7:9)] 
+
+# Create a data frame
+
+colnames(zipcode.df)[colnames(zipcode.df) == "zipcode"] <- "zip"
 
 # read in the csv and view it in another tab
 
-institution.df <- read.csv("C:\\Users\\SamDe\\Desktop\\MS\\InstitutionCampus.csv")
+institution.df <- read.csv("C:\\Users\\SamDe\\Desktop\\MS\\IST_659_Data_Admin_Concept_&_Db_Mgmt\\Project\\InstitutionCampus.csv")
 View(institution.df)
 
 # remove the two columns I don't want
-# like I'm going to fax them anything!
 
-institution.df <- institution.df[,c(-3,-13)] 
+institution.df <- institution.df[,c(-3, -13)] 
 
 # rename the columns to make them SQL friendly / match my column names in my data base
 
@@ -48,6 +82,7 @@ institution.df$zipcode <- str_extract(institution.df$zip, "\\d{5}")
 zip.indexes <- match(institution.df$zipcode, zipcode.df$zip)
 
 # use this index to add the city and state that correspond to the zip code of the record in our institution table
+
 institution.df$city <- zipcode.df[zip.indexes,2]
 institution.df$inst_state <- zipcode.df[zip.indexes,3]
 
@@ -69,7 +104,7 @@ institution.df$institution_id <- as.character(institution.df$institution_id)
 
 # read in the csv and view it in another tab
 
-mock_students.df <- read.csv("C:\\Users\\SamDe\\Desktop\\MS\\mock_students.csv")
+mock_students.df <- read.csv("C:\\Users\\SamDe\\Desktop\\MS\\IST_659_Data_Admin_Concept_&_Db_Mgmt\\Project\\mock_students.csv")
 View(mock_students.df)
 
 # replace the mockaroo zip codes (which are actually random numbers 10001 - 99999) with real zip codes from our zipcode data frame
@@ -96,7 +131,7 @@ mock_students.df$city <- zipcode.df[mock.zip.indexes,2]
 
 # read in the csv and view it in another tab
 
-mock_parents.df <- read.csv("C:\\Users\\SamDe\\Desktop\\MS\\mock_parents.csv")
+mock_parents.df <- read.csv("C:\\Users\\SamDe\\Desktop\\MS\\IST_659_Data_Admin_Concept_&_Db_Mgmt\\Project\\mock_parents.csv")
 View(mock_parents.df)
 
 # replace the three columns with values from the mock student data frame
@@ -114,11 +149,9 @@ mock_parents.df$address_line_1 <- mock_students.df$address_line_1
 
 # now I need to populate my bridge tables and tables with foreign keys
 # I am going to use my stored procedures (4 of them) to do this since I'm importing so much data so quickly
-# in the future I would make my stored procedures "smarter", incorporating control flow so that bridge tables
-# and tables with foreign keys become populated as new records to strong tables to added
+# orm isn't working with virtual machine
 
 # I am going to randomly generate the records I'll need and automatically generate the statements
-# I'm so sorry in advance, this is going to be a bunch of code in SQL
 
 #######
 # create vectors that contain all possible values for associative tables
@@ -129,6 +162,31 @@ mock_parents.df$address_line_1 <- mock_students.df$address_line_1
 # and have either American citizenship or Korean citizenship
 # the actual database allows for multiple citizenships and multiple nationalities
 # and it has every country/territory/region
+
+relationship <- c(
+  'Mother (Biological)'
+  ,'Father (Biological)'
+  ,'Legal Guardian'
+  ,'Aunt'
+  ,'Uncle'
+  ,'Brother'
+  ,'Sister'
+  ,'Cousin'
+  ,'Stepbrother'
+  ,'Stepsister'
+  ,'Other')
+
+parent_student_list <- data.frame(
+  mock_parents.df$email
+  , mock_students.df$email
+  , sample(relationship
+           , size = length(mock_students.df$email)
+           , replace = TRUE
+           , prob = c(0.35,0.35,0.14,0.03,0.04,0.02,0.02,0.01,0.01,0.01,0.01)))
+
+# rename columns
+colnames(parent_student_list) = c('parent_email', 'student_email', 'relationship')
+
 
 citizenship <- c(
 'Korea, Republic of'
@@ -227,29 +285,6 @@ colnames(student_nationality.df) <- c('student_email', 'nationality')
 # i will just use the matches I made in R
 # i weighted the probabilities that different relationships would be chosen for our parents and students
 
-relationship <- c(
-  'Mother (Biological)'
-  ,'Father (Biological)'
-  ,'Legal Guardian'
-  ,'Aunt'
-  ,'Uncle'
-  ,'Brother'
-  ,'Sister'
-  ,'Cousin'
-  ,'Stepbrother'
-  ,'Stepsister'
-  ,'Other')
-
-parent_student_list <- data.frame(
-  mock_parents.df$email
-  , mock_students.df$email
-  , sample(relationship
-           , size = length(mock_students.df$email)
-           , replace = TRUE
-           , prob = c(0.35,0.35,0.14,0.03,0.04,0.02,0.02,0.01,0.01,0.01,0.01)))
-
-# rename columns
-colnames(parent_student_list) = c('parent_email', 'student_email', 'relationship')
 
 # the final data we need to generate are our college applications
 
@@ -601,6 +636,5 @@ sp_insert_record_into_college_application <- cat(paste0(
   , student_5_applications$attendance_decision
   ,"'")
   , sep="\n")
-
 
 
